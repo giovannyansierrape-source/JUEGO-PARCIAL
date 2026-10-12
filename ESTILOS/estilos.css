@@ -1,0 +1,114 @@
+/* ===== Variables (igual que en tu CV) ===== */
+:root{
+  --fondo:#045d19;
+  --panel:#0370a7;
+  --tablero:#120a0af5;
+  --linea:#03f765;
+  --texto:#ffffff;
+  --sub:#f9f9fb;
+  --culebra:#235f0e;
+  --manzana:#9c0404af;
+  --accent:#3314af;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--fondo);color:var(--texto);font-family:'Inter',system-ui,sans-serif;}
+h1{font-family:'Space Grotesk',system-ui,sans-serif;margin:0;}
+
+/* ===== Franja superior ===== */
+.banner{background:var(--accent);padding:28px;}
+.banner .head{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:16px;}
+.logo{width:56px;height:56px;border-radius:50%;background:rgba(191,255,0,.18);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none;}
+.logo img{width:100%;height:100%;object-fit:cover;display:block;}
+.banner h1{font-size:clamp(24px,5vw,34px);cursor:pointer;display:inline-block;}
+.banner .sub{color:#f0f0f0;font-size:14px;margin-top:2px;}
+
+/* ===== Contenedor del juego ===== */
+.wrap{max-width:760px;margin:0 auto;padding:24px 20px 60px;}
+
+.marcador{display:flex;justify-content:space-between;gap:12px;margin-bottom:14px;}
+.dato{background:var(--panel);border-radius:14px;padding:10px 16px;flex:1;}
+.dato span{display:block;font-size:12px;color:var(--sub);}
+.dato strong{font-family:'Space Grotesk',sans-serif;font-size:24px;}
+
+.tablero{position:relative;}
+canvas{display:block;width:100%;height:auto;aspect-ratio:1/1;
+  background:var(--tablero);border:2px solid var(--linea);border-radius:14px;}
+
+/* Mensaje encima del tablero */
+.mensaje{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:12px;text-align:center;
+  background:rgba(10,18,13,.82);border-radius:14px;padding:20px;}
+.mensaje.oculto{display:none;}
+.mensaje h2{font-family:'Space Grotesk',sans-serif;margin:0;font-size:26px;}
+.mensaje p{margin:0;color:var(--sub);font-size:14px;}
+
+button{font-family:inherit;cursor:pointer;border:none;border-radius:999px;
+  background:var(--culebra);color:#0a120d;font-weight:600;font-size:15px;padding:10px 22px;}
+button:hover{filter:brightness(1.1);}
+button:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+.secundario{background:var(--panel);color:var(--texto);border:1.5px solid var(--linea);}
+
+.acciones{display:flex;gap:10px;margin-top:14px;}
+.acciones button{flex:1;}
+
+/* ===== Controles táctiles (celular) ===== */
+.cruz{display:none;margin:18px auto 0;width:200px;
+  grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,56px);gap:8px;}
+.cruz button{padding:0;font-size:22px;border-radius:14px;background:var(--panel);color:var(--texto);}
+.cruz .arriba{grid-column:2;grid-row:1;}
+.cruz .izq{grid-column:1;grid-row:2;}
+.cruz .abajo{grid-column:2;grid-row:2;}
+.cruz .der{grid-column:3;grid-row:2;}
+@media (hover:none) and (pointer:coarse){ .cruz{display:grid;} }
+
+.ayuda{text-align:center;color:var(--sub);font-size:13px;margin-top:16px;}
+
+/* ===== Animaciones ===== */
+@keyframes aparecer{
+  from{opacity:0;transform:translateY(20px);}
+  to{opacity:1;transform:translateY(0);}
+}
+.banner .head{animation:aparecer .8s both;}
+.wrap{animation:aparecer .6s .3s both;}
+
+@keyframes latir{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.08);} }
+.logo{animation:latir 4s ease-in-out infinite;}
+
+/* Al hacer clic en el título */
+@keyframes rebotar{
+  0%,100%{transform:translateY(0) scale(1);}
+  30%{transform:translateY(-14px) scale(1.06);}
+  60%{transform:translateY(0) scale(.97);}
+  80%{transform:translateY(-5px);}
+}
+.banner h1.animar{animation:rebotar .7s ease;}
+
+/* Sacudida del tablero al perder */
+@keyframes temblar{
+  0%,100%{transform:translateX(0);}
+  20%{transform:translateX(-8px);}
+  40%{transform:translateX(8px);}
+  60%{transform:translateX(-5px);}
+  80%{transform:translateX(5px);}
+}
+canvas.temblar{animation:temblar .4s ease;}
+
+.dato{transition:transform .3s;}
+.dato:hover{transform:translateY(-3px);}
+
+@media (prefers-reduced-motion:reduce){
+  .banner .head,.wrap,.logo,.banner h1.animar,canvas.temblar,.dato{animation:none;transition:none;}
+}
+
+canvas{
+  max-height:70vh;
+  margin:0 auto;
+}
+.tablero{
+  max-width:min(100%, 70vh);
+  margin:0 auto;
+}

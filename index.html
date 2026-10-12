@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Culebrita — Juego</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- CSS externo, igual que en tu CV -->
+<link rel="stylesheet" href="ESTILOS/estilos.css">
+<!-- Pon aquí tu icono en la carpeta ICON (ej: ICON/CULEBRA.png) -->
+<link rel="icon" type="image/png" href="ICON/CULEBRIS.png">
+</head>
+<body>
+
+<header class="banner">
+    <div class="head">
+    <div class="logo">
+        <!-- Pon tu imagen en la carpeta IMAGEN (ej: IMAGEN/LOGO.png) -->
+        <img src="IMAGEN/CULEBRA.jpg" alt="Logo de la culebrita">
+    </div>
+    <div>
+        <h1>Culebrita</h1>
+        <div class="sub">Come manzanas y no te choques</div>
+    </div>
+    </div>
+</header>
+
+<main class="wrap">
+    <div class="marcador">
+    <div class="dato"><span>Puntos</span><strong id="puntos">0</strong></div>
+    <div class="dato"><span>Récord</span><strong id="record">0</strong></div>
+    </div>
+
+    <div class="tablero">
+    <canvas id="lienzo" width="600" height="600" aria-label="Tablero del juego"></canvas>
+    <div class="mensaje" id="mensaje">
+        <h2 id="mensajeTitulo">¿Listo?</h2>
+        <p id="mensajeTexto">Usa las flechas o WASD para moverte.</p>
+        <button id="btnJugar">Jugar</button>
+    </div>
+    </div>
+
+    <div class="acciones">
+    <button class="secundario" id="btnPausa">Pausa</button>
+    <button class="secundario" id="btnReiniciar">Reiniciar</button>
+    </div>
+
+    <!-- Botones para celular -->
+    <div class="cruz">
+    <button class="arriba" data-dir="arriba" aria-label="Arriba">▲</button>
+    <button class="izq" data-dir="izq" aria-label="Izquierda">◀</button>
+    <button class="abajo" data-dir="abajo" aria-label="Abajo">▼</button>
+    <button class="der" data-dir="der" aria-label="Derecha">▶</button>
+    </div>
+
+    <p class="ayuda">Flechas o WASD para mover · Espacio para pausar</p>
+</main>
+
+<script>
+// ===== 1. Elementos de la página (querySelector) =====
+const lienzo = document.querySelector('#lienzo');
+const ctx = lienzo.getContext('2d');
+const puntosEl = document.querySelector('#puntos');
+const recordEl = document.querySelector('#record');
+const mensaje = document.querySelector('#mensaje');
+const mensajeTitulo = document.querySelector('#mensajeTitulo');
+const mensajeTexto = document.querySelector('#mensajeTexto');
+const nombre = document.querySelector('.banner h1');
+
+// ===== 2. Variables del juego (const y let) =====
+const TAM = 30;                       // tamaño de cada casilla
+const CASILLAS = lienzo.width / TAM;  // 20 x 20 casillas
+const COLOR_CULEBRA = '#00780F';
+const COLOR_CABEZA = '#00B30F';
+const COLOR_MANZANA = '#ff5a4d';
+const NUM_MANZANAS = 15;   // cuántas manzanas hay a la vez
+const COLOR_FONDO_1 = '#a8d86e';   // casilla clara
+const COLOR_FONDO_2 = '#9acb62';   // casilla oscura
+
+let culebra, direccion, siguienteDireccion;
+let manzanas = [];   // lista con todas las manzanas del tablero
+let puntos = 0;
+let record = 0;
+let velocidad = 130;      // milisegundos entre pasos (menos = más rápido)
+let intervalo = null;
+let jugando = false;
+let pausado = false;
+
+// Récord guardado en el navegador (con protección por si falla)
+try { record = Number(localStorage.getItem('culebritaRecord')) || 0; } catch (e) { record = 0; }
+recordEl.textContent = record;
+
+// ===== 3. Funciones =====
+function iniciar() {
+    culebra = [{x:10, y:10}, {x:9, y:10}, {x:8, y:10}];
+    direccion = {x:1, y:0};
+    siguienteDireccion = {x:1, y:0};
+    puntos = 0;
+    velocidad = 130;
+    puntosEl.textContent = puntos;
+    pausado = false;
+    jugando = true;
+    manzanas = [];
+    for (let i = 0; i < NUM_MANZANAS; i++) crearManzana();
+    mensaje.classList.add('oculto');
+    empezarCiclo();
+    console.log('Juego iniciado');
+}
+
+function empezarCiclo() {
+    clearInterval(intervalo);
+    intervalo = setInterval(paso, velocidad);
+}
+
+function crearManzana() {
+    let nueva;
+    do {
+        nueva = {
+         x: Math.floor(Math.random() * CASILLAS),
+         y: Math.floor(Math.random() * CASILLAS)
+    };
+    } while (
+        culebra.some(p => p.x === nueva.x && p.y === nueva.y) ||
+        manzanas.some(m => m.x === nueva.x && m.y === nueva.y)
+    );
+    manzanas.push(nueva);
+}
+
+function paso() {
+    direccion = siguienteDireccion;
+    const cabeza = { x: culebra[0].x + direccion.x, y: culebra[0].y + direccion.y };
+
+  // ¿Chocó con la pared o consigo misma?
+    const chocaPared = cabeza.x < 0 || cabeza.y < 0 || cabeza.x >= CASILLAS || cabeza.y >= CASILLAS;
+    const chocaCuerpo = culebra.some(p => p.x === cabeza.x && p.y === cabeza.y);
+    if (chocaPared || chocaCuerpo) {
+    perder();
+    return;
+    }
+
+    culebra.unshift(cabeza);
+
+const comida = manzanas.findIndex(m => m.x === cabeza.x && m.y === cabeza.y);
+if (comida !== -1){
+    puntos++;
+    puntosEl.textContent = puntos;
+    console.log('Puntos:', puntos);
+    manzanas.splice(comida, 1);   // quita la manzana comida
+    crearManzana();
+    // Cada 5 manzanas va más rápido
+    if (puntos % 5 === 0 && velocidad > 60) {
+        velocidad -= 10;
+        empezarCiclo();
+    }
+    } else {
+    culebra.pop();   // si no comió, la cola avanza
+    }
+    dibujar();
+}
+
+function dibujarManzana(x, y) {
+  const cx = x * TAM + TAM / 2;
+  const cy = y * TAM + TAM / 2 + TAM * 0.05;
+  const r = TAM * 0.36;
+
+  // Cuerpo rojo con borde oscuro
+ctx.fillStyle = '#e8321f';
+ctx.strokeStyle = '#8f1a10';
+ctx.lineWidth = 1.5;
+ctx.beginPath();
+ctx.arc(cx, cy, r, 0, Math.PI * 2);
+ctx.fill();
+ctx.stroke();
+
+  // Brillo
+ctx.fillStyle = 'rgba(255,255,255,.6)';
+ctx.beginPath();
+ctx.arc(cx - r * 0.45, cy - r * 0.35, TAM * 0.07, 0, Math.PI * 2);
+ctx.fill();
+
+  // Tallo
+ctx.strokeStyle = '#5b3a1a';
+ctx.lineWidth = 2;
+ctx.beginPath();
+ctx.moveTo(cx, cy - r * 0.8);
+ctx.lineTo(cx + TAM * 0.04, cy - r - TAM * 0.12);
+ctx.stroke();
+
+  // Hoja
+ctx.fillStyle = '#5fd35f';
+ctx.strokeStyle = '#2e7d32';
+ctx.lineWidth = 1;
+ctx.beginPath();
+ctx.ellipse(cx + TAM * 0.15, cy - r - TAM * 0.08, TAM * 0.13, TAM * 0.07, -0.5, 0, Math.PI * 2);
+ctx.fill();
+ctx.stroke();
+}
+
+function dibujar() {
+  // Fondo de dos colores (tablero de ajedrez)
+    for (let fila = 0; fila < CASILLAS; fila++) {
+    for (let col = 0; col < CASILLAS; col++) {
+        ctx.fillStyle = (fila + col) % 2 === 0 ? COLOR_FONDO_1 : COLOR_FONDO_2;
+      ctx.fillRect(col * TAM, fila * TAM, TAM, TAM);
+    }
+}
+// Manzanas
+manzanas.forEach(m => dibujarManzana(m.x, m.y));
+
+  // Culebra
+    culebra.forEach((p, i) => {
+    ctx.fillStyle = i === 0 ? COLOR_CABEZA : COLOR_CULEBRA;
+    ctx.fillRect(p.x * TAM + 1, p.y * TAM + 1, TAM - 2, TAM - 2);
+      // ===== Cara de la culebra =====
+  const cx = culebra[0].x * TAM + TAM / 2;   // centro de la cabeza
+  const cy = culebra[0].y * TAM + TAM / 2;
+  const px = -direccion.y;                   // lado (perpendicular a la dirección)
+    const py = direccion.x;
+
+  // Lengua (sale hacia donde mira)
+    ctx.strokeStyle = COLOR_MANZANA;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+  ctx.moveTo(cx + direccion.x * TAM * 0.5, cy + direccion.y * TAM * 0.5);
+  ctx.lineTo(cx + direccion.x * TAM * 0.85, cy + direccion.y * TAM * 0.85);
+    ctx.stroke();
+
+  // Dos ojos: uno a cada lado (-1 y 1)
+    [-1, 1].forEach((lado) => {
+    const ox = cx + direccion.x * TAM * 0.2 + px * lado * TAM * 0.22;
+    const oy = cy + direccion.y * TAM * 0.2 + py * lado * TAM * 0.22;
+    ctx.fillStyle = '#ffffff';                       // parte blanca
+    ctx.beginPath();
+    ctx.arc(ox, oy, TAM * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#000000';                       // pupila
+    ctx.beginPath();
+    ctx.arc(ox + direccion.x * TAM * 0.04, oy + direccion.y * TAM * 0.04, TAM * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+    });});
+}
+
+function perder() {
+    clearInterval(intervalo);
+    jugando = false;
+    console.log('Perdiste con', puntos, 'puntos');
+
+    if (puntos > record) {
+    record = puntos;
+    recordEl.textContent = record;
+    try { localStorage.setItem('culebritaRecord', record); } catch (e) {}
+    mensajeTitulo.textContent = '¡Nuevo récord!';
+    } else {
+    mensajeTitulo.textContent = 'Perdiste';
+    }
+    mensajeTexto.textContent = 'Hiciste ' + puntos + ' puntos.';
+    document.querySelector('#btnJugar').textContent = 'Jugar otra vez';
+    mensaje.classList.remove('oculto');
+
+  // Animación de sacudida
+    lienzo.classList.remove('temblar');
+    void lienzo.offsetWidth;
+    lienzo.classList.add('temblar');
+}
+
+function pausar() {
+    if (!jugando) return;
+    pausado = !pausado;
+    if (pausado) {
+    clearInterval(intervalo);
+    mensajeTitulo.textContent = 'Pausa';
+    mensajeTexto.textContent = 'Pulsa Espacio para seguir.';
+    document.querySelector('#btnJugar').textContent = 'Continuar';
+    mensaje.classList.remove('oculto');
+    } else {
+    mensaje.classList.add('oculto');
+    empezarCiclo();
+    }
+}
+
+function cambiarDireccion(nueva) {
+  // No se puede girar 180° sobre sí misma
+    if (nueva.x === -direccion.x && nueva.y === -direccion.y) return;
+    siguienteDireccion = nueva;
+}
+
+const DIRS = {
+    arriba: {x:0, y:-1},
+    abajo:  {x:0, y:1},
+    izq:    {x:-1, y:0},
+    der:    {x:1, y:0}
+};
+
+// ===== 4. Eventos (addEventListener) =====
+document.addEventListener('keydown', (e) => {
+    const tecla = e.key.toLowerCase();
+    const mapa = {
+    arrowup:'arriba', w:'arriba',
+    arrowdown:'abajo', s:'abajo',
+    arrowleft:'izq', a:'izq',
+    arrowright:'der', d:'der'
+    };
+    if (mapa[tecla]) {
+    e.preventDefault();
+    if (jugando && !pausado) cambiarDireccion(DIRS[mapa[tecla]]);
+    } else if (tecla === ' ') {
+    e.preventDefault();
+    pausar();
+    }
+});
+
+document.querySelector('#btnJugar').addEventListener('click', () => {
+    if (jugando && pausado) pausar(); else iniciar();
+});
+document.querySelector('#btnPausa').addEventListener('click', pausar);
+document.querySelector('#btnReiniciar').addEventListener('click', iniciar);
+
+document.querySelectorAll('.cruz button').forEach((boton) => {
+    boton.addEventListener('click', () => {
+    if (jugando && !pausado) cambiarDireccion(DIRS[boton.dataset.dir]);
+    });
+});
+
+// Animación al hacer clic en el título (como en tu CV)
+nombre.addEventListener('click', () => {
+    nombre.classList.remove('animar');
+    void nombre.offsetWidth;
+    nombre.classList.add('animar');
+});
+
+// Primer dibujo antes de empezar
+culebra = [{x:10, y:10}, {x:9, y:10}, {x:8, y:10}];
+direccion = {x:1, y:0};
+siguienteDireccion = direccion;
+manzanas = [{x:15, y:10}, {x:5, y:5}, {x:12, y:15}];
+dibujar();
+</script>
+</body>
+</html>
